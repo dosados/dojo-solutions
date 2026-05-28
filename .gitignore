@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# OS / распакованные zip с macOS
+.DS_Store
+Thumbs.db
+__MACOSX/
+._*
+
+# Секреты и локальное окружение
+.env
+.env.*
+!.env.example
+
+# Веса и чекпоинты (скачивать: task-*/download_weights.py)
+weights/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+
+# Логи и временные файлы
+*.log
+*.tmp
+*.swp
+*~
+
+# Случайный вывод shell (pip install ... > =0.46.1)
+=*

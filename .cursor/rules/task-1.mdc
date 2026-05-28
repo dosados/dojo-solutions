@@ -1,0 +1,32 @@
+---
+description: Task 1 — EN→RU paragraph translation (Yandex contest)
+globs: task-1/**
+alwaysApply: false
+---
+
+# Task 1 — Англо-русский переводчик
+
+**Ground truth (не менять):** `task-1/docs/SPECS.md` — см. [.cursor/rules/contest-specs.mdc](contest-specs.mdc).  
+Справочник по BLEU: `task-1/docs/BLEU.md` (можно дополнять).
+
+- **Goal:** best BLEU on paragraph-level EN→RU; model advice: `google/gemma-4-E2B`.
+- **Submit:** zip = содержимое **`task-1/submission/`** (`Dockerfile`, `solution.py`, `weights/`) → runs in Docker, no internet in contest.
+- **I/O:** read `/workspace/input.pickle` (`[{rid, src}]`, 69 test items); write `output.json` in `/workspace` (см. `submission/solution.py`).
+- **Zip layout:** flat root preferred; one wrapper folder OK; **no** double nesting (`a/a/Dockerfile` → PresentationError). No `__MACOSX` in zip.
+- **Baseline:** `submission/solution.py` loads gemma-4-E2B-it from `./weights`, minimal prompt.
+- **Limits:** ≤45 min for 69 requests; image <20 GB; L4 24GB VRAM, 16GB RAM, 4 vCPU; offline — all weights/deps in image/zip.
+- **BLEU:** sacrebleu mean; avoid meta phrases in translations (“Вот перевод…”).
+- **Layout:** менять код сдачи только в `submission/`; `docs/`, `examples/`, `scripts/`, будущие `train_*.py` — снаружи.
+- **Local smoke test** (from `task-1/`):
+
+```bash
+conda run -n ml-env python download_weights.py
+docker build -t task-1-solution ./submission
+mkdir -p out
+docker run --rm --gpus all \
+  -v "$PWD/examples/example-input.pickle":/workspace/input.pickle \
+  -v "$PWD/out":/workspace/out \
+  task-1-solution
+```
+
+Weights: `download_weights.py` → `submission/weights/` (~10 GB). Pack: `./scripts/zip-submission.sh`. Docker image: **pip only**, no conda (see `conda-env.mdc`).

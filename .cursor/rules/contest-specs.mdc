@@ -1,0 +1,32 @@
+---
+description: Contest SPECS are immutable ground truth (task-1, task-2)
+alwaysApply: true
+---
+
+# Условие контеста (SPECS) — ground truth
+
+Файлы **`task-1/docs/SPECS.md`** и **`task-2/docs/SPECS.md`** — дословная копипаста задания с contest.yandex.ru.
+
+## Запрет на правки
+
+- **Не редактировать** эти файлы: не исправлять опечатки, не дополнять, не реструктурировать, не переводить.
+- Не предлагать пользователю коммитить изменения в `SPECS.md`.
+- Если в SPECS что-то устарело относительно кода — **подстраивать решение под SPECS**, а не наоборот.
+
+## Приоритет
+
+При любом противоречии **слушаться SPECS в первую очередь**, затем:
+
+1. `task-*/docs/SPECS.md` (контест)
+2. Официальные дополнения организаторов в других файлах условия (если явно ссылаются на контест)
+3. `task-1/docs/BLEU.md`, `SOLUTION_STRATEGIES.md`, `IMPLEMENTATION_ROADMAP.md` — наши справочники
+4. `AGENTS.md`, `.cursor/rules/task-*.mdc` — краткие выжимки (могут ошибаться)
+
+Уточнения, эмпирика и план работ — в **другие** файлы (`BLEU.md`, `SOLUTION_STRATEGIES.md`, `experiments/JOURNAL.md`, `task-*/README.md`), **не** в `SPECS.md`.
+
+## Перед работой над задачей
+
+- Task 1: прочитать `task-1/docs/SPECS.md` (+ `task-1/docs/BLEU.md` для метрики).
+- Task 2: прочитать `task-2/docs/SPECS.md`.
+
+Формат I/O, лимиты времени/образа, zip, модель по умолчанию — только из SPECS, если не оговорено иное самим пользователем.

@@ -1,0 +1,38 @@
+---
+description: Conda ml-env locally; pip-only inside Docker; no conda run
+alwaysApply: true
+---
+
+# Python: локально vs Docker
+
+## Локально (только на машине разработчика)
+
+- Conda env **ml-env** — **только** для локальной работы: `python`, `pip`, скрипты, ноутбуки, eval, `download_weights.py` и т.п.
+- **Не использовать** `conda run -n ml-env …` — буферизует вывод, tqdm/`--progress` и `print(flush=True)` могут не появляться минутами; долгие прогоны выглядят «зависшими».
+- **Использовать** активированное окружение и обычный вызов:
+
+```bash
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate ml-env
+python -u script.py ...
+pip install ...
+```
+
+- Для длинных job (инференс, `solution.py`) — всегда **`python -u`** (unbuffered).
+- One-liner без `activate` только если необходимо: `conda run --no-capture-output -n ml-env python -u ...` (не `conda run -n` без флага).
+- Do not use system `python3`, other venvs, or bare `pip` on the host unless the user explicitly asks.
+
+## Docker (сдача на контест)
+
+- **Не** использовать Anaconda/conda в образе и Dockerfile.
+- В контейнере — обычный **pip** (как в `task-*/Dockerfile`: `pip3 install ...` на базовом образе).
+- Зависимости для рантайма решения ставить через `pip` в Dockerfile; тот же набор пакетов для локальной разработки можно держать в **ml-env** через `pip` (не смешивать conda- и docker-сборку).
+- При правках `Dockerfile` не добавлять miniconda, `conda install`, не копировать env из Anaconda.
+
+## Итого
+
+| Где | Как запускать / ставить пакеты |
+|-----|-------------------------------|
+| Локально | `conda activate ml-env` → `python -u` / `pip` |
+| Локально (запрещено) | `conda run -n ml-env …` |
+| Docker / контест | только `pip` в образе, `python3 solution.py` |

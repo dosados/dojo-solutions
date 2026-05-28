@@ -1,0 +1,16 @@
+# Веса не коммитятся (~10 GB); скачать: python download_weights.py
+submission/weights/
+
+# Артефакты локальных прогонов
+out/
+task-2-submission.zip
+
+# Локальный docker run (официальные примеры: examples/)
+submission/input.pickle
+submission/output.json
+
+# Распакованный бейзлайн организаторов (если есть)
+ru-ab-gemma-4-baseline-submission/
+
+# Данные для обучения / dev
+data/

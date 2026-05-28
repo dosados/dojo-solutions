@@ -1,0 +1,32 @@
+---
+description: Append text experiment notes after each meaningful run
+alwaysApply: true
+---
+
+# Experiment journal
+
+- Before suggesting a new approach, read `experiments/JOURNAL.md` to see what was already tried and in what order.
+- After each meaningful experiment (local eval, docker smoke test, contest submit, finetune run, prompt change with measured outcome), **append** a new entry to `experiments/JOURNAL.md`. Never delete or rewrite past entries; only add at the end.
+- Write in **plain text / markdown**, not JSON. Use Russian or English consistently within an entry.
+- Each entry must include:
+  1. **Date** and **task** (`task-1` or `task-2`)
+  2. **Что пробовали** — hypothesis, changes (files, prompt, model, data)
+  3. **Как работал код** — command(s), env notes, what ran vs failed, timing if relevant
+  4. **Результат** — BLEU, sample outputs, contest score, errors
+  5. **Вывод** — keep / drop / next step; avoid repeating dead ends without new info
+
+Template:
+
+```markdown
+---
+
+## YYYY-MM-DD — task-N — краткое название
+
+**Что пробовали:** ...
+
+**Как работал код:** ...
+
+**Результат:** ...
+
+**Вывод:** ...
+```

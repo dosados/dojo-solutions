@@ -1,0 +1,4 @@
+# Локальная оценка и подготовка данных (conda env ml-env)
+sacrebleu>=2.4.0
+datasets>=2.14.0
+bitsandbytes>=0.43.0
