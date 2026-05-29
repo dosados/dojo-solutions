@@ -144,3 +144,95 @@ Worst-10 v1:
 | 115 | 26.07 | Пушкин: «задние обложки» vs «затылки сафьяновых фолиантов» |
 
 **Вывод:** Фаза 1 окупилась (+3.24 BLEU); few-shot сработал на длинных IT-абзацах (14, 52), не на коротком заголовке 51 и не на loanword 58. **8/10** худших — article Пушкин (архаичный ref): дальнейший выигрыш промптом на self/dev ограничен. Следующее: (1) глоссарий IT + few-shot rid=58; (2) отдельная метрика по article-2 vs article-3; (3) OPUS paragraph-val для выбора перед контестом; (4) LoRA на OPUS — основной рычаг после сдачи v1 на контест.
+
+---
+
+## 2026-05-28 — task-1 — QLoRA pipeline (скрипты)
+
+**Что пробовали:** Пайплайн: `train_lora.py`, `lora_train_validate.py` (этап 1), `merge_lora.py` (этап 2), `zip-submission.sh` (этап 3); конфиги `lora_pilot.yaml` / `lora_100k.yaml`; `solution.py` — `--lora-dir`.
+
+**Как работал код:** `docs/TRAINING.md`; `pip install -r requirements-train.txt`; этап 1: `python -u scripts/lora_train_validate.py --config configs/lora_pilot.yaml`.
+
+**Результат:** _(прогон обучения — следующая запись)_
+
+**Вывод:** Train OPUS предложения; merge → `submission/weights/model.safetensors`; valid по OPUS val subset, не self/Пушкин для early stop.
+
+---
+
+## 2026-05-28 — task-1 — QLoRA pilot_10k — self/dev: регрессия −20 BLEU
+
+**Что пробовали:** Пилот QLoRA (`configs/lora_pilot.yaml`): 10k предложений OPUS, `max_seq_length=256`, короткий train-промпт (`train/prompts_train.py`, без few-shot). Обучение ~49 мин / 1250 шагов на 8 GB (Legion), адаптер `runs/lora/pilot_10k/final`. Валидация на **целевом** корпусе: 117 абзацев `self/dev`, тот же инференс, что для контеста — полный `prompts.py` (BLEU-инструкция + 3 few-shot) + `postprocess.py`, 4-bit, динамический `max_new_tokens`.
+
+**Как работал код:**
+```bash
+# train (успешно, без OOM после LowVRAMSFTTrainer + tokenize_sft)
+python -u scripts/lora_train_validate.py --config configs/lora_pilot.yaml
+
+# сравнение baseline vs adapter на абзацах
+python -u scripts/validate_lora.py \
+  --adapter runs/lora/pilot_10k/final \
+  --input data/processed/self/dev.input.pickle \
+  --ref data/processed/self/dev.jsonl \
+  --max-samples 0 \
+  --out-dir out/lora_val_self_dev \
+  --progress --worst 10
+```
+Справка: OPUS val 300 предложений давала baseline macro BLEU **~26.5** (другой домен и шум в ref) — не сравнивать с self/dev.
+
+**Результат:** `out/lora_val_self_dev/scores.json`
+
+| | macro BLEU | n | Δ vs baseline |
+|--|------------|---|----------------|
+| baseline (v1 prompt, без LoRA) | **56.86** | 117 | — |
+| + LoRA pilot_10k | **36.48** | 117 | **−20.38** |
+
+Референс inference v1 без LoRA в журнале: **57.12** — текущий baseline 56.86 согласуется (тот же промпт, мелкий разброс прогона).
+
+Worst LoRA (примеры обвала): rid=58 BLEU **0.00**, rid=42 **0.18**, rid=31 **0.44** — много IT/абзацев, где baseline был нормальным. Worst baseline на том же прогоне — по-прежнему Пушкин (rid 109, 108, 102…), не совпадает с worst LoRA → модель с адаптером **сменила режим перевода**, а не «чуть подправила» v1.
+
+Train loss на пилоте падал (шаг 1 ~121 → ~15), то есть обучение технически шло; деградация на self/dev — не артефакт сломанного чекпоинта, а **несовпадение train/eval**.
+
+**Вывод:** Для **посылки на контест этот адаптер не использовать** (не merge, не `--lora-dir`). Это **провал гипотезы пилота** в текущем виде, но **объяснимый**, не «LoRA мёртв»:
+
+1. **Prompt mismatch:** SFT на коротком «Переведи… / Английский / Русский», инференс на длинном few-shot — адаптер учился под другой вход.
+2. **Domain/format:** OPUS **предложения** (укороченные пары, `max_src_chars=400`) vs **абзацы** self/dev.
+3. **Длина:** train `max_seq_length=256` vs длинные абзацы при generate.
+4. Пилот не замерял BLEU на OPUS с **тем же** промптом, что train — роста на целевой метрике не показано.
+
+**Решение:** **Переходим к другому** в смысле **этого прогона** — оставляем **inference v1 (prompt + postprocess)** как основную линию для сдачи; пилотный LoRA **закрыть**. Повторять LoRA имеет смысл только как **новый эксперимент** (не дотюнинг пилота): выровнять train-промпт с `build_translation_prompt`, paragraph-level данные или длинные сегменты, 50–100k+, val на OPUS с тем же промптом; желательно GPU 16 GB+ (Colab). До этого — не тратить merge/попытки контеста на `pilot_10k`.
+
+---
+
+## 2026-05-29 — task-1 — beam search в solution.py
+
+**Что пробовали:** Beam search через `transformers.generate`: `--num-beams` (default **4**), `--length-penalty` (default 1.0), `early_stopping=True` при `num_beams > 1`. `--num-beams 1` — прежний greedy.
+
+**Как работал код:**
+```bash
+cd task-1/submission && python -u solution.py \
+  --device cuda --quantize 4bit \
+  --input ../data/processed/self/dev.input.pickle \
+  --output ../out/dev_output_beam4.json --progress
+
+cd .. && python scripts/eval_bleu.py \
+  --hyp out/dev_output_beam4.json \
+  --ref data/processed/self/dev.jsonl --worst 10 --show-text
+```
+Сравнение с inference v1 greedy: `dev_output_v1.json`, macro **57.12** (запись 2026-05-28).
+
+**Результат:** sacrebleu 2.6.0; **macro BLEU = 56.42** (n=117, min 13.48, max 100.00). Относительно greedy v1: **−0.70** BLEU. Worst-10 по-прежнему доминирует Пушкин (rid 109, 102, 107, 108, 110, 116, 115, 106) + IT rid 58, 51.
+
+| rid | BLEU (beam4) | Комментарий |
+|-----|--------------|-------------|
+| 109 | 13.48 | Пушкин: «притчи»/«Ангериаду» vs «басни»/«Генриада» |
+| 102 | 15.23 | Пушкин: «Царское Село Лицей» vs «Царскосельский лицей» |
+| 107 | 16.17 | Пушкин: «придумывать комедии» vs «импровизировать» |
+| 58 | 16.84 | Python: «сообщество» vs «комьюнити» |
+| 110 | 17.42 | Пушкин: стих, имена |
+| 108 | 17.51 | Пушкин: «Вор» vs «Похититель» |
+| 51 | 17.97 | Заголовок (без изменения vs v1) |
+| 116 | 19.08 | Пушкин: «в детских годах» vs «в детских летах» |
+| 115 | 24.72 | Пушкин: «задние части фолионов» vs «затылки сафьяновых фолиантов» |
+| 106 | 25.79 | Пушкин: обороты |
+
+**Вывод:** Beam 4 **не окупился** на self/dev: медленнее (~4×), BLEU ниже greedy v1. Для сдачи и основной линии — **greedy** (`--num-beams 1`, default в `solution.py`); beam — опциональный флаг (`--num-beams 4`) для редких подборов.

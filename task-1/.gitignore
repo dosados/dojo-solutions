@@ -3,6 +3,7 @@ submission/weights/
 
 # Артефакты локальных прогонов
 out/
+runs/
 task-1-submission.zip
 
 # Локальный docker run (официальные примеры: examples/)

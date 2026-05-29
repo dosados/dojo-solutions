@@ -1,6 +1,0 @@
-{
-  "run_name": "pilot_10k",
-  "n_train": 10000,
-  "n_val": 0,
-  "config": "/home/mants/Documents/own/dojo-solutions/task-1/configs/lora_pilot.yaml"
-}
