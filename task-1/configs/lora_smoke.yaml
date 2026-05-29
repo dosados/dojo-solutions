@@ -1,0 +1,38 @@
+# Быстрая проверка пайплайна (~2–5 мин на 8GB). Потом: lora_pilot.yaml
+run_name: smoke
+
+model_dir: submission/weights
+output_dir: runs/lora
+
+train_file: data/processed/opus100/train.jsonl
+val_file: data/processed/opus100/validation.jsonl
+
+max_train_samples: 200
+max_val_samples: 0
+eval_during_train: false
+low_vram: true
+min_src_chars: 10
+max_src_chars: 400
+
+seed: 42
+num_train_epochs: 1
+max_steps: 15
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 2
+learning_rate: 2.0e-4
+max_seq_length: 256
+loss_type: nll
+completion_only_loss: true
+assistant_only_loss: false
+activation_offloading: false
+gradient_checkpointing: true
+cast_norms_to_fp32: false
+warmup_steps: 2
+
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+
+logging_steps: 5
+save_steps: 1000
+save_total_limit: 1

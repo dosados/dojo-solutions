@@ -53,8 +53,28 @@ cd .. && conda run -n ml-env python scripts/eval_bleu.py \
 - [docs/BLEU.md](docs/BLEU.md) — как считается метрика на контесте
 - Модуль: `task-1/eval/`
 
+## LoRA (три этапа: train+val → merge → zip)
+
+```bash
+conda activate ml-env
+cd task-1
+pip install -r requirements-train.txt
+
+# 1) обучение + BLEU
+python -u scripts/lora_train_validate.py --config configs/lora_pilot.yaml
+
+# 2) merge в submission/weights (отдельно)
+python -u scripts/merge_lora.py --adapter runs/lora/pilot_10k/final --device cpu --backup
+
+# 3) zip для контеста (отдельно)
+./scripts/zip-submission.sh
+```
+
+Подробно: [docs/TRAINING.md](docs/TRAINING.md).
+
 ## Документация
 
 - [docs/SPECS.md](docs/SPECS.md) — условие
 - [docs/SOLUTION_STRATEGIES.md](docs/SOLUTION_STRATEGIES.md) — подходы
 - [docs/IMPLEMENTATION_ROADMAP.md](docs/IMPLEMENTATION_ROADMAP.md) — план работ
+- [docs/TRAINING.md](docs/TRAINING.md) — QLoRA, merge, zip

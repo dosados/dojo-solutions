@@ -83,6 +83,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=f"Не масштабировать лимит по длине src; использовать {MAX_NEW_TOKENS_DEFAULT}",
     )
+    parser.add_argument(
+        "--lora-dir",
+        type=Path,
+        default=None,
+        help="Каталог PEFT-адаптера (локальная проверка до merge)",
+    )
+    parser.add_argument(
+        "--no-lora",
+        action="store_true",
+        help="Не подгружать weights/lora/ даже если есть",
+    )
     return parser.parse_args()
 
 
@@ -107,10 +118,29 @@ def _gpu_free_gib() -> float | None:
     return free / 2**30
 
 
+def _resolve_lora_dir(
+    lora_dir: Path | None,
+    *,
+    no_lora: bool,
+) -> Path | None:
+    if no_lora:
+        return None
+    if lora_dir is not None:
+        path = lora_dir.expanduser().resolve()
+        if not (path / "adapter_config.json").is_file():
+            raise FileNotFoundError(f"no adapter_config.json in {path}")
+        return path
+    default = Path(MODEL_DIR) / "lora"
+    if (default / "adapter_config.json").is_file():
+        return default.resolve()
+    return None
+
+
 def _load_model(
     device_mode: str,
     *,
     quantize: str,
+    lora_dir: Path | None = None,
 ) -> tuple[AutoModelForCausalLM, torch.device]:
     if quantize != "none" and device_mode == "cpu":
         raise RuntimeError("--quantize с --device cpu не поддерживается")
@@ -154,6 +184,25 @@ def _load_model(
             device_map="auto",
         )
         device = _infer_model_device(model)
+
+    if lora_dir is not None:
+        from peft import PeftModel
+
+        try:
+            import sys
+            from pathlib import Path as _Path
+
+            _root = _Path(__file__).resolve().parents[1]
+            if str(_root) not in sys.path:
+                sys.path.insert(0, str(_root))
+            from train.gemma_peft import patch_peft_gemma4_clippable_linear
+
+            patch_peft_gemma4_clippable_linear()
+        except ImportError:
+            pass
+
+        print(f"  LoRA adapter: {lora_dir}", flush=True)
+        model = PeftModel.from_pretrained(model, str(lora_dir))
 
     _report_device_placement(model, device_mode, quantize=quantize)
     return model, device
@@ -250,8 +299,13 @@ def main() -> None:
     t_load = time.perf_counter()
     print("  processor …", flush=True)
     processor = AutoProcessor.from_pretrained(MODEL_DIR)
+    lora_path = _resolve_lora_dir(args.lora_dir, no_lora=args.no_lora)
     print(f"  model (device={args.device}) …", flush=True)
-    model, device = _load_model(args.device, quantize=args.quantize)
+    model, device = _load_model(
+        args.device,
+        quantize=args.quantize,
+        lora_dir=lora_path,
+    )
     if device.type == "cuda":
         alloc = torch.cuda.memory_allocated(device) / 2**30
         reserved = torch.cuda.memory_reserved(device) / 2**30
