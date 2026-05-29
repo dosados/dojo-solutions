@@ -1,0 +1,6 @@
+{
+  "run_name": "smoke",
+  "n_train": 200,
+  "n_val": 0,
+  "config": "/home/mants/Documents/own/dojo-solutions/task-1/configs/lora_smoke.yaml"
+}

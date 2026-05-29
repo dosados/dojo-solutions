@@ -83,7 +83,34 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=f"Не масштабировать лимит по длине src; использовать {MAX_NEW_TOKENS_DEFAULT}",
     )
+    parser.add_argument(
+        "--num-beams",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Beam search: N>1 — beam, N=1 — greedy (по умолчанию: 1)",
+    )
+    parser.add_argument(
+        "--length-penalty",
+        type=float,
+        default=1.0,
+        help="Length penalty для beam search (только при --num-beams > 1)",
+    )
     return parser.parse_args()
+
+
+def _build_generate_kwargs(
+    max_tokens: int,
+    *,
+    num_beams: int,
+    length_penalty: float,
+) -> dict:
+    kw: dict = {"max_new_tokens": max_tokens}
+    if num_beams > 1:
+        kw["num_beams"] = num_beams
+        kw["length_penalty"] = length_penalty
+        kw["early_stopping"] = True
+    return kw
 
 
 def _bnb_config(quantize: str):
@@ -223,6 +250,8 @@ def _iter_rows(rows: list, *, progress: bool) -> Iterator[dict]:
 
 def main() -> None:
     args = parse_args()
+    if args.num_beams < 1:
+        raise SystemExit("--num-beams must be >= 1")
     input_path = args.input.expanduser().resolve()
     output_path = args.output.expanduser().resolve()
     use_dynamic = not args.no_dynamic_tokens
@@ -242,6 +271,14 @@ def main() -> None:
         )
     else:
         print(f"max_new_tokens: {MAX_NEW_TOKENS_DEFAULT}", flush=True)
+    if args.num_beams > 1:
+        print(
+            f"decoding: beam search (num_beams={args.num_beams}, "
+            f"length_penalty={args.length_penalty})",
+            flush=True,
+        )
+    else:
+        print("decoding: greedy (num_beams=1)", flush=True)
 
     print(
         "loading weights (~10 GB from ./weights) — progress bar starts after this",
@@ -287,7 +324,12 @@ def main() -> None:
         inputs = processor(text=text, return_tensors="pt").to(device)
         input_len = inputs["input_ids"].shape[-1]
 
-        outputs = model.generate(**inputs, max_new_tokens=max_tokens)
+        gen_kw = _build_generate_kwargs(
+            max_tokens,
+            num_beams=args.num_beams,
+            length_penalty=args.length_penalty,
+        )
+        outputs = model.generate(**inputs, **gen_kw)
         response = processor.decode(outputs[0][input_len:], skip_special_tokens=False)
         raw = processor.parse_response(response)["content"]
         translation = postprocess_translation(raw)
