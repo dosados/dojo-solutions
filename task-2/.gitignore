@@ -1,16 +1,31 @@
-# Веса не коммитятся (~10 GB); скачать: python download_weights.py
+# Веса не коммитятся (~8–10 GB); скачать: download_weights*.py
 submission/weights/
+submission_translate/weights/
+weights/
+
+# Hugging Face cache внутри weights/
+**/.cache/
+
+# Zip для контеста (собирать локально: scripts/zip-submission.sh или zip -r)
+task-2-submission.zip
+task-2-translategemma-submission.zip
+*.zip
 
 # Артефакты локальных прогонов
 out/
-task-2-submission.zip
 
 # Локальный docker run (официальные примеры: examples/)
 submission/input.pickle
 submission/output.json
+submission_translate/input.pickle
+submission_translate/output.json
 
 # Распакованный бейзлайн организаторов (если есть)
 ru-ab-gemma-4-baseline-submission/
 
-# Данные для обучения / dev
+# Данные для обучения / dev / self-check
 data/
+
+# Python bytecode (дублирует корневой .gitignore — на случай локальных исключений)
+__pycache__/
+*.py[cod]

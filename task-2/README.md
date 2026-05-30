@@ -17,16 +17,12 @@ task-2/
 
 ```bash
 cd task-2
-conda run -n ml-env python download_weights.py
+conda activate ml-env
+python download_weights_translate.py   # или download_weights.py для Gemma-4-E2B
 
-cd submission
-docker build -t task-2-solution .
-mkdir -p ../out
-docker run --rm --gpus all \
-  -v "$PWD/../examples/example-input.pickle":/workspace/input.pickle \
-  -v "$PWD/../out/output.json":/workspace/output.json \
-  task-2-solution
-cat ../out/output.json
+# Локальная оценка TranslateGemma (dev из параллельного корпуса + BLEU)
+python -u scripts/run_local_eval.py --prepare-dev --limit 20 --show-text
+python -u scripts/run_local_eval.py --prepare-dev --show-text
 ```
 
 Оригинальный архив организаторов: `ru-ab-gemma-4-baseline-submission/`.

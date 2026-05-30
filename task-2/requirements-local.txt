@@ -1,0 +1,4 @@
+# Локальный eval task-2 (ml-env). Не нужны в Docker submission/.
+-r ../task-1/requirements-eval.txt
+bitsandbytes>=0.44.0
+tqdm
