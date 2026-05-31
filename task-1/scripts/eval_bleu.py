@@ -27,6 +27,7 @@ _TASK_ROOT = Path(__file__).resolve().parents[1]
 if str(_TASK_ROOT) not in sys.path:
     sys.path.insert(0, str(_TASK_ROOT))
 
+from eval.articles import DEV_IT_EXCLUDE  # noqa: E402
 from eval.bleu import evaluate_pairs  # noqa: E402
 from eval.io import load_hypotheses, load_references  # noqa: E402
 
@@ -90,13 +91,32 @@ def main() -> None:
         help="Не требовать перевод для каждого rid из ref",
     )
     parser.add_argument(
+        "--exclude-articles",
+        nargs="+",
+        default=None,
+        metavar="ARTICLE",
+        help=(
+            "Пропустить статьи из ref.jsonl (поле article), "
+            f"напр. --exclude-articles {DEV_IT_EXCLUDE[0]}"
+        ),
+    )
+    parser.add_argument(
+        "--dev-it",
+        action="store_true",
+        help=f"Сокращение для --exclude-articles {' '.join(DEV_IT_EXCLUDE)}",
+    )
+    parser.add_argument(
         "--sanity-ref",
         action="store_true",
         help="Сравнить ref с самим собой (ожидается BLEU=100)",
     )
     args = parser.parse_args()
 
-    refs = load_references(args.ref, ref_key=args.ref_key)
+    exclude = args.exclude_articles
+    if args.dev_it:
+        exclude = list(DEV_IT_EXCLUDE) if exclude is None else list(exclude) + list(DEV_IT_EXCLUDE)
+
+    refs = load_references(args.ref, ref_key=args.ref_key, exclude_articles=exclude)
 
     if args.sanity_ref:
         hyps = refs

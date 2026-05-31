@@ -1,0 +1,39 @@
+# Пилот QLoRA на ~8GB VRAM (Legion). На L4 24GB см. lora_100k.yaml.
+run_name: pilot_10k
+
+model_dir: submission/weights
+output_dir: runs/lora
+
+train_file: data/processed/opus100/train.jsonl
+val_file: data/processed/opus100/validation.jsonl
+
+max_train_samples: 10000
+max_val_samples: 0
+eval_during_train: false
+low_vram: true
+min_src_chars: 10
+max_src_chars: 400          # короче пары → меньше токенов после template
+
+seed: 42
+num_train_epochs: 1
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 2.0e-4
+max_seq_length: 256          # 384+ OOM на forward+lm_head при 8GB
+loss_type: nll               # не chunked_nll на 8GB
+completion_only_loss: true
+assistant_only_loss: false
+activation_offloading: false # true иногда ухудшает пики VRAM на шаге
+gradient_checkpointing: true
+cast_norms_to_fp32: false   # true +8GB: лишний fp32 на norm после загрузки
+warmup_steps: 50
+# max_steps: 20             # раскомментируйте для быстрой проверки OOM
+
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+
+logging_steps: 10
+eval_steps: 100
+save_steps: 500
+save_total_limit: 2

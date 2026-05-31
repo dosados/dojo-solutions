@@ -1,4 +1,17 @@
-"""Промпт для EN→RU: ориентация на macro BLEU + few-shot из dev-корпуса."""
+"""Промпты EN→RU: baseline (организаторы) и v1 (BLEU + few-shot)."""
+
+# Оригинальный бейзлайн из шаблона организаторов.
+_BASELINE_INSTRUCTION = """\
+Ты профессиональный переводчик. Твоя задача перевести текст с английского на русский.
+ВАЖНО чтобы в ответе был только перевод без каких-либо комментариев и уточнений.
+
+Текст для перевода:
+"""
+
+
+def build_baseline_prompt(src: str) -> str:
+    return _BASELINE_INSTRUCTION + src
+
 
 # Пары из self/dev (article-1–2): близкий к ref стиль, без архаики Пушкина.
 FEW_SHOT_EXAMPLES: list[tuple[str, str]] = [

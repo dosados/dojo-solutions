@@ -8,6 +8,8 @@
     all.input.pickle         # для solution.py
     dev.jsonl                # статьи 1–4 (без heldout)
     dev.input.pickle
+    dev_it.jsonl             # dev без article-4 (Пушкин)
+    dev_it.input.pickle
     heldout.jsonl            # одна статья (по умолчанию article-5)
     heldout.input.pickle
 
@@ -36,6 +38,7 @@ _TASK_ROOT = Path(__file__).resolve().parents[1]
 if str(_TASK_ROOT) not in sys.path:
     sys.path.insert(0, str(_TASK_ROOT))
 
+from eval.articles import DEV_IT_EXCLUDE  # noqa: E402
 from eval.formats import jsonl_to_pickle, parse_paragraph_blocks, write_jsonl  # noqa: E402
 
 DEFAULT_SELF = _TASK_ROOT / "data" / "self_data"
@@ -97,7 +100,13 @@ def convert_self_data(
     dev_rows = [r for r in all_rows if r["article"] != heldout_article]
     heldout_rows = [r for r in all_rows if r["article"] == heldout_article]
 
-    for rows, name in ((dev_rows, "dev"), (heldout_rows, "heldout")):
+    dev_it_rows = [r for r in dev_rows if r["article"] not in DEV_IT_EXCLUDE]
+
+    for rows, name in (
+        (dev_rows, "dev"),
+        (dev_it_rows, "dev_it"),
+        (heldout_rows, "heldout"),
+    ):
         renumbered = []
         for new_rid, row in enumerate(rows):
             renumbered.append({**row, "rid": new_rid})
@@ -110,6 +119,8 @@ def convert_self_data(
     return {
         "n_all": n_all,
         "n_dev": len(dev_rows),
+        "n_dev_it": len(dev_it_rows),
+        "dev_it_excluded": list(DEV_IT_EXCLUDE),
         "n_heldout": len(heldout_rows),
         "heldout_article": heldout_article,
         "articles": sorted({r["article"] for r in all_rows}),
@@ -210,13 +221,13 @@ def main() -> None:
     )
 
     print(f"\nDone. Manifest: {manifest_path}")
-    print("\nВалидация бейзлайна (абзацы, золотой dev):")
-    print("  cd submission && conda run -n ml-env python solution.py \\")
-    print("    --input ../data/processed/self/dev.input.pickle \\")
-    print("    --output ../out/dev_output.json")
-    print("  conda run -n ml-env python scripts/eval_bleu.py \\")
-    print("    --hyp out/dev_output.json \\")
-    print("    --ref data/processed/self/dev.jsonl --worst 10 --show-text")
+    print("\nВалидация (dev без Пушкина, article-4):")
+    print("  cd submission && python -u solution.py \\")
+    print("    --input ../data/processed/self/dev_it.input.pickle \\")
+    print("    --output ../out/dev_it_output.json --progress")
+    print("  python scripts/eval_bleu.py \\")
+    print("    --hyp out/dev_it_output.json \\")
+    print("    --ref data/processed/self/dev_it.jsonl --worst 10 --show-text")
     print("\nФинальный held-out (статья 5):")
     print("  … --ref data/processed/self/heldout.jsonl")
 

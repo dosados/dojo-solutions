@@ -1,0 +1,8 @@
+{
+  "backend": "unsloth",
+  "run_name": "smoke_unsloth",
+  "n_train": 200,
+  "prompt_style": "v1",
+  "train_seconds": 83.1,
+  "max_seq_length": 384
+}

@@ -1,0 +1,46 @@
+# Unsloth QLoRA pilot — 10k OPUS + v1 prompt + длиннее контекст (vs старый pilot_10k)
+
+backend: unsloth
+model_dir: submission/weights
+run_name: pilot_unsloth
+output_dir: runs/lora
+
+train_file: data/processed/opus100/train.jsonl
+val_file: data/processed/opus100/validation.jsonl
+max_train_samples: 10000
+max_val_samples: 0
+min_src_chars: 10
+max_src_chars: 400
+
+# Опционально: подмешать абзацы dev_it (IT, без Пушкина)
+self_mix_path: data/processed/self/dev_it.jsonl
+self_mix_max: 200
+
+# v1 = промпт inference (BLEU + few-shot) — выравнивание train/eval
+prompt_style: v1
+
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0
+
+max_seq_length: 512
+load_in_4bit: true
+device_map_single_gpu: true
+text_only: true
+offload_embedding: true
+disable_torch_compile: true
+activation_offloading: false
+unsloth_gradient_checkpointing: false
+optim: paged_adamw_8bit
+low_vram: true
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+num_train_epochs: 2
+learning_rate: 0.0002
+warmup_steps: 50
+logging_steps: 10
+save_steps: 500
+save_total_limit: 2
+seed: 42
+
+benchmark_dev_it: false

@@ -63,37 +63,60 @@ def load_hypotheses(path: Path) -> dict[int, str]:
     return load_rid_text_map(path, "translation")
 
 
-def load_references(path: Path, ref_key: str | None = None) -> dict[int, str]:
+def _resolve_ref_key(rows: list[dict[str, Any]], ref_key: str | None) -> str:
+    if ref_key is not None:
+        return ref_key
+    sample = rows[0]
+    if "ref" in sample:
+        return "ref"
+    if "translation" in sample:
+        return "translation"
+    if "tgt" in sample:
+        return "tgt"
+    raise KeyError(
+        f"specify --ref-key; found keys: {list(sample.keys())}"
+    )
+
+
+def _load_ref_rows(path: Path) -> list[dict[str, Any]]:
+    suffix = path.suffix.lower()
+    if suffix == ".jsonl":
+        return load_jsonl(path)
+    if suffix == ".json":
+        return load_json_list(path)
+    with path.open("rb") as f:
+        rows = pickle.load(f)
+    if not isinstance(rows, list):
+        raise ValueError(f"{path}: expected list rows, got {type(rows).__name__}")
+    return rows
+
+
+def load_references(
+    path: Path,
+    ref_key: str | None = None,
+    *,
+    exclude_articles: tuple[str, ...] | list[str] | None = None,
+) -> dict[int, str]:
     """Эталоны: ref, translation или plain .txt по порядку rid."""
     suffix = path.suffix.lower()
     if suffix == ".txt":
         lines = _read_text_lines(path)
         return {i: line for i, line in enumerate(lines)}
 
-    rows = (
-        load_jsonl(path)
-        if suffix == ".jsonl"
-        else load_json_list(path)
-        if suffix == ".json"
-        else None
-    )
-    if rows is None:
-        with path.open("rb") as f:
-            rows = pickle.load(f)
-
-    key = ref_key
-    if key is None:
-        sample = rows[0]
-        if "ref" in sample:
-            key = "ref"
-        elif "translation" in sample:
-            key = "translation"
-        elif "tgt" in sample:
-            key = "tgt"
-        else:
-            raise KeyError(
-                f"{path}: specify --ref-key; found keys: {list(sample.keys())}"
+    rows = _load_ref_rows(path)
+    if exclude_articles:
+        skip = set(exclude_articles)
+        before = len(rows)
+        rows = [r for r in rows if r.get("article") not in skip]
+        dropped = before - len(rows)
+        if dropped:
+            print(
+                f"excluded {dropped} example(s) from articles: "
+                f"{', '.join(sorted(skip))}",
+                flush=True,
             )
+
+    key = _resolve_ref_key(rows, ref_key)
 
     out: dict[int, str] = {}
     for row in rows:

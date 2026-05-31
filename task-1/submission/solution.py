@@ -15,7 +15,7 @@ import torch
 from transformers import AutoProcessor, AutoModelForCausalLM
 
 from postprocess import postprocess_translation
-from prompts import build_translation_prompt
+from prompts import build_baseline_prompt, build_translation_prompt
 
 
 MODEL_DIR = "./weights"
@@ -82,6 +82,17 @@ def parse_args() -> argparse.Namespace:
         "--no-dynamic-tokens",
         action="store_true",
         help=f"Не масштабировать лимит по длине src; использовать {MAX_NEW_TOKENS_DEFAULT}",
+    )
+    parser.add_argument(
+        "--prompt",
+        choices=("baseline", "v1"),
+        default="v1",
+        help="baseline: промпт организаторов; v1: BLEU-инструкция + few-shot",
+    )
+    parser.add_argument(
+        "--no-postprocess",
+        action="store_true",
+        help="Не применять postprocess.py (для сравнения с оригинальным бейзлайном)",
     )
     return parser.parse_args()
 
@@ -267,6 +278,13 @@ def main() -> None:
         )
     if args.progress:
         print(f"translating {n} paragraphs …", flush=True)
+    print(f"prompt: {args.prompt}", flush=True)
+    if args.no_postprocess:
+        print("postprocess: off", flush=True)
+
+    build_prompt = (
+        build_baseline_prompt if args.prompt == "baseline" else build_translation_prompt
+    )
 
     results = []
     t0 = time.perf_counter()
@@ -278,7 +296,7 @@ def main() -> None:
             dynamic=use_dynamic,
         )
         text = processor.apply_chat_template(
-            [{"role": "user", "content": build_translation_prompt(src)}],
+            [{"role": "user", "content": build_prompt(src)}],
             tokenize=False,
             add_generation_prompt=True,
             enable_thinking=False,
@@ -290,7 +308,7 @@ def main() -> None:
         outputs = model.generate(**inputs, max_new_tokens=max_tokens)
         response = processor.decode(outputs[0][input_len:], skip_special_tokens=False)
         raw = processor.parse_response(response)["content"]
-        translation = postprocess_translation(raw)
+        translation = raw.strip() if args.no_postprocess else postprocess_translation(raw)
 
         results.append({
             "rid": row["rid"],
