@@ -1,7 +1,5 @@
-Правила для Cursor перенесены в репозиторий:
+# Инструкции разработки
 
-- `.cursor/rules/conda-env.mdc` — conda **ml-env** локально; в Docker только **pip**
-- `.cursor/rules/task-2.mdc` — условие задачи (кратко)
-- `.cursor/rules/experiments-journal.mdc` — журнал `experiments/JOURNAL.md`
+Актуальные инструкции собраны в [AGENTS.md](../../AGENTS.md). Каталог настроек Cursor удалён из проекта.
 
-Обзор репо: `AGENTS.md` в корне.
+Команды запуска и воспроизведения: [README](../../README.md) и [REPRODUCING.md](../../docs/REPRODUCING.md).

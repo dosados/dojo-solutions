@@ -11,7 +11,6 @@
 | `task-*/docs/SPECS.md` | **Условие контеста (копипаста, не редактировать)** — ground truth |
 | `scripts/requirements.txt` | Зависимости для локальной работы (если используете) |
 | `experiments/JOURNAL.md` | Хронология экспериментов (append-only, текст) |
-| `.cursor/rules/` | Правила для AI-агента в Cursor |
 
 ## Task 1 — Англо-русский переводчик
 
@@ -38,14 +37,16 @@
 
 ## Общий пайплайн сдачи
 
-1. Локально: `conda activate ml-env` → `python download_weights.py` (из `task-1/`) → `submission/weights/` (не `conda run -n`, см. `.cursor/rules/conda-env.mdc`)
+1. Локально: `conda activate ml-env` → `python download_weights.py` (из `task-1/`) → `submission/weights/` (не `conda run -n`: он буферизует вывод)
 2. `docker build ./submission` && `docker run` с монтированием `input.pickle` и `out/`
 3. Zip: содержимое **`task-1/submission/`** (`scripts/zip-submission.sh`) — без `__MACOSX` и без двойной вложенности папок
 4. Загрузка на contest.yandex.ru (4 попытки / 24 ч)
 
 ## Для агента
 
-- Всегда: [.cursor/rules/contest-specs.mdc](.cursor/rules/contest-specs.mdc) — **`task-*/docs/SPECS.md` не менять**, приоритет над остальной документацией
-- Всегда: [.cursor/rules/conda-env.mdc](.cursor/rules/conda-env.mdc), [.cursor/rules/experiments-journal.mdc](.cursor/rules/experiments-journal.mdc)
-- При работе в `task-1/` или `task-2/`: соответствующие `task-*.mdc`
-- Перед новым экспериментом — прочитать `experiments/JOURNAL.md`; после прогона — дописать запись в конец
+- `task-*/docs/SPECS.md` — исходные условия; не редактировать. При противоречиях они имеют приоритет над остальной документацией.
+- Локально на машине автора использовать активированное conda-окружение `ml-env`; для длинных запусков — `python -u`. Не использовать `conda run -n` без `--no-capture-output`.
+- В Docker устанавливать зависимости через pip, не добавлять Conda.
+- Перед новым экспериментом прочитать `experiments/JOURNAL.md`; после прогона дописать запись в конец. Не переписывать прошлые записи. Формат: дата и задача, что пробовали, команды и окружение, результат, вывод.
+- Конкурсный код держать в `submission*/`; исследовательские утилиты — в `scripts/` и `train/`. Сохранять автономный Docker/ZIP и исходный формат I/O.
+- Актуальные режимы и команды описаны в [README](README.md) и [руководстве воспроизведения](docs/REPRODUCING.md).

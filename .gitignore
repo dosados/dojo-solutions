@@ -55,3 +55,6 @@ weights/
 *.npz
 *.parquet
 !task-*/examples/example-input.pickle
+
+# Local editor settings
+.cursor/
