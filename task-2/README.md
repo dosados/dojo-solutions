@@ -22,6 +22,6 @@ python -u dojo.py infer --task 2 --model translate \
 
 В `configs/{gemma,translate,nllb}` находятся собственные конфиги; в `train/` — подготовка данных, токенизация, модели, PEFT и Trainer callbacks; в `scripts/` — точки входа подготовки, обучения, валидации и merge.
 
-Успешная TranslateGemma CLM → SFT посылка 31 мая получила 8.7 BLEU на скрытом тесте. Позднее beam search дал локальный прирост 25.154 → 26.401 на dev; закрытый балл последней версии не зафиксирован. Эти измерения нельзя объединять в один результат.
+Успешная TranslateGemma CLM → SFT посылка 31 мая получила 8.7 BLEU на скрытом тесте. Позднее beam search дал локальный прирост 25.154 → 26.401 на dev; закрытый балл последней версии не зафиксирован. Подробные настройки и результаты — в [журнале](../experiments/JOURNAL.md).
 
 [Воспроизведение](../docs/REPRODUCING.md) · [Архитектура](../docs/ARCHITECTURE.md) · [Обучение](docs/TRAINING.md) · [Результаты](../docs/RESULTS.md) · [Журнал](../experiments/JOURNAL.md).
