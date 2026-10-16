@@ -1,0 +1,4 @@
+[
+  {"rid": 0, "src": "Machine translation should preserve the meaning of the original paragraph."},
+  {"rid": 1, "src": "The model runs offline and returns only the translated text."}
+]

@@ -1,0 +1,39 @@
+# Stage 2 SFT — parallel RU→AB (init от clm_pilot)
+stage: sft
+run_name: sft_pilot
+
+model_dir: submission_nllb/weights
+output_dir: runs/lora/nllb
+adapter_init: runs/lora/nllb/clm_pilot/final
+
+train_file: data/processed/parallel/train.jsonl
+val_file: data/processed/parallel/val.jsonl
+
+max_val_samples: 500
+min_src_chars: 5
+max_src_chars: 4096
+max_sents: 20
+
+seed: 42
+num_train_epochs: 3
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 1.0e-4
+max_seq_length: 384
+gradient_checkpointing: true
+cast_norms_to_fp32: true
+warmup_steps: 100
+
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+logging_steps: 20
+eval_steps: 200
+save_steps: 200
+save_total_limit: 2
+save_only_model: true
+auto_resume: true
+# cpu_offload: true
+# gpu_max_memory_gib: 6.5
+# cpu_max_memory_gib: 32

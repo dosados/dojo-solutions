@@ -33,6 +33,12 @@ EXCLUDE=(
   "*__MACOSX*"
   "*__pycache__*"
   "*.pyc"
+  "input.pickle"
+  "output.json"
+  "postprocess.py"
+  "prompt_tune_active.py"
+  "prompts.py"
+  "prompts_*.py"
   "weights/.cache/*"
   "weights/.cache/**"
 )

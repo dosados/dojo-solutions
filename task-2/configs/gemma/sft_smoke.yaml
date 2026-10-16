@@ -1,0 +1,40 @@
+# Stage 2 SFT — Gemma-4-E2B, smoke
+stage: sft
+model_type: gemma
+run_name: sft_smoke
+
+model_dir: submission/weights
+output_dir: runs/lora/gemma
+adapter_init: runs/lora/gemma/clm_smoke/final
+
+train_file: data/processed/parallel/train.jsonl
+val_file: data/processed/parallel/val.jsonl
+
+max_train_samples: 1000
+max_val_samples: 100
+min_src_chars: 5
+max_src_chars: 120
+max_sents: 3
+
+seed: 42
+num_train_epochs: 1
+max_steps: 10
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4
+learning_rate: 1.0e-4
+max_seq_length: 256
+loss_type: nll
+completion_only_loss: true
+gradient_checkpointing: true
+cast_norms_to_fp32: true
+low_vram: true
+warmup_steps: 2
+
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+
+logging_steps: 2
+eval_steps: 10
+save_steps: 10
+save_total_limit: 1

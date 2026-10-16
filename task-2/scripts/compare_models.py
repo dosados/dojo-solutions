@@ -17,36 +17,33 @@ import sys
 from pathlib import Path
 
 _TASK_ROOT = Path(__file__).resolve().parents[1]
+if str(_TASK_ROOT) not in sys.path:
+    sys.path.insert(0, str(_TASK_ROOT))
 _TASK1_ROOT = _TASK_ROOT.parent / "task-1"
+
+from train.paths import resolve_weights_dir  # noqa: E402
 
 MODELS = {
     "gemma": {
         "label": "Gemma-4-E2B",
         "submission": _TASK_ROOT / "submission",
-        "weights": _TASK_ROOT / "submission" / "weights",
-        "weights_fallback": _TASK1_ROOT / "submission" / "weights",
         "output": _TASK_ROOT / "out" / "gemma_dev_output.json",
     },
     "translate": {
         "label": "TranslateGemma-4B",
         "submission": _TASK_ROOT / "submission_translate",
-        "weights": _TASK_ROOT / "submission_translate" / "weights",
-        "weights_fallback": None,
         "output": _TASK_ROOT / "out" / "translategemma_dev_output.json",
+    },
+    "nllb": {
+        "label": "NLLB-3.3B",
+        "submission": _TASK_ROOT / "submission_nllb",
+        "output": _TASK_ROOT / "out" / "nllb_dev_output.json",
     },
 }
 
 
 def _resolve_weights(model_key: str) -> Path:
-    info = MODELS[model_key]
-    if info["weights"].is_dir():
-        return info["weights"]
-    fallback = info["weights_fallback"]
-    if fallback and Path(fallback).is_dir():
-        return Path(fallback)
-    raise FileNotFoundError(
-        f"weights not found for {info['label']}: {info['weights']}"
-    )
+    return resolve_weights_dir(model_key)
 
 
 def _bleu(output: Path, ref: Path, limit: int | None) -> dict:
@@ -159,7 +156,8 @@ def main() -> None:
         raise FileNotFoundError("dev not found — run with --prepare-dev first")
 
     results = {}
-    for key in ("gemma", "translate"):
+    model_keys = tuple(MODELS)
+    for key in model_keys:
         out = _run_model(key, args)
         metrics = _bleu(out, args.ref, args.limit)
         results[key] = {
@@ -169,7 +167,7 @@ def main() -> None:
         }
 
     print("\n=== comparison (macro BLEU) ===")
-    for key in ("gemma", "translate"):
+    for key in model_keys:
         r = results[key]
         print(
             f"{r['label']:20s}  BLEU={r['macro_bleu']:6.2f}  "

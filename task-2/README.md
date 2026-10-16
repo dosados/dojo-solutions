@@ -1,32 +1,27 @@
-# Task 2 — RU→Abkhaz
+# Task 2 · Русский → абхазский
 
-## Структура
+Машинный перевод на малоресурсный язык. Конкурсная метрика — среднее sentence BLEU на 515 закрытых примерах; лимит 30 минут на L4 24 ГБ. [Оригинальное условие](docs/SPECS.md).
 
-```
-task-2/
-├── submission/          # ← zip и Docker: Dockerfile, solution.py, weights/
-├── download_weights.py  # скачивает веса в submission/weights/
-├── examples/            # example-input.pickle, example-output.json
-├── scripts/             # zip-submission.sh
-└── docs/                # SPECS (условие контеста)
-```
-
-**Правило:** меняете только `submission/` (и веса через `download_weights.py`). Всё остальное в `task-2/` на контест не влияет.
-
-## Быстрый старт
+## Запуск из корня репозитория
 
 ```bash
-cd task-2
-conda activate ml-env
-python download_weights_translate.py   # или download_weights.py для Gemma-4-E2B
-
-# Локальная оценка TranslateGemma (dev из параллельного корпуса + BLEU)
-python -u scripts/run_local_eval.py --prepare-dev --limit 20 --show-text
-python -u scripts/run_local_eval.py --prepare-dev --show-text
+python dojo.py download --task 2 --model translate
+python -u dojo.py infer --task 2 --model translate \
+  --input examples/ru-ab.json --output out/ru-ab.json
 ```
 
-Оригинальный архив организаторов: `ru-ab-gemma-4-baseline-submission/`.
+Это скачивание базовой модели. Обученные RU→AB веса не опубликованы; для повторения CLM/SFT нужны конкурсные корпуса и обучение. Скрипты подготовки и конфиги включены, ссылки и ограничения — в [ресурсах](../docs/RESOURCES.md).
 
-## Документация
+## Три линии
 
-- [docs/SPECS.md](docs/SPECS.md) — условие (не редактировать)
+| `--model` | Код | Подход |
+|---|---|---|
+| `gemma` | `submission/` | Gemma-4-E2B baseline, обычный RU-промпт |
+| `translate` | `submission_translate/` | TranslateGemma-4B, structured translation template, CLM → SFT, beam=3 / lp=0.8 |
+| `nllb` | `submission_nllb/` | NLLB-200-3.3B seq2seq, `rus_Cyrl` → `abk_Cyrl`, forced BOS, beam=4 |
+
+В `configs/{gemma,translate,nllb}` находятся собственные конфиги; в `train/` — подготовка данных, токенизация, модели, PEFT и Trainer callbacks; в `scripts/` — точки входа подготовки, обучения, валидации и merge.
+
+Успешная TranslateGemma CLM → SFT посылка 31 мая получила 8.7 BLEU на скрытом тесте. Позднее beam search дал локальный прирост 25.154 → 26.401 на dev; закрытый балл последней версии не зафиксирован. Эти измерения нельзя объединять в один результат.
+
+[Воспроизведение](../docs/REPRODUCING.md) · [Архитектура](../docs/ARCHITECTURE.md) · [Обучение](docs/TRAINING.md) · [Результаты](../docs/RESULTS.md) · [Журнал](../experiments/JOURNAL.md).

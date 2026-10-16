@@ -1,0 +1,53 @@
+# Stage 1 CLM — TranslateGemma, r=24 full (new run_name to avoid auto-resume)
+stage: clm
+model_type: translate
+run_name: clm_r24_full_v1
+
+model_dir: submission_translate/weights
+output_dir: runs/lora/translate
+adapter_init: null
+
+train_file: data/processed/mono/train.jsonl
+mono_lang_weights:
+  ab: 0.6
+  ru: 0.4
+
+min_chars: 20
+max_chars: 120
+
+max_train_samples: 150000
+
+seed: 42
+num_train_epochs: 1
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 2
+learning_rate: 2.0e-4
+max_seq_length: 256
+loss_type: nll
+completion_only_loss: false
+gradient_checkpointing: true
+cast_norms_to_fp32: true
+low_vram: true
+warmup_steps: 100
+
+# speed-up options
+tokenize_batched: true
+tokenize_batch_size: 256
+# tokenize_num_proc: 4
+attn_implementation: sdpa
+compile_train: false
+compile_mode: default
+
+lora_r: 24
+lora_alpha: 48
+lora_dropout: 0.05
+
+logging_steps: 20
+save_steps: 200
+save_total_limit: 2
+save_only_model: true
+auto_resume: true
+# При OOM включи cpu_offload (медленнее):
+# cpu_offload: true
+# gpu_max_memory_gib: 6.5
+# cpu_max_memory_gib: 32

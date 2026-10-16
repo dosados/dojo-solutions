@@ -1,0 +1,5 @@
+-r evaluation.txt
+peft==0.19.1
+trl==0.24.0
+bitsandbytes>=0.43.0
+PyYAML>=6.0,<7

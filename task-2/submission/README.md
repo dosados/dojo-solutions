@@ -15,8 +15,23 @@
 Из `task-2/`:
 
 ```bash
-conda run -n ml-env python download_weights.py
+conda activate ml-env
+python download_weights.py
 ```
+
+## QLoRA → merge → сдача
+
+После обучения (см. `../docs/TRAINING.md`):
+
+```bash
+cd task-2
+python -u scripts/merge_lora.py --model gemma \
+  --adapter runs/lora/gemma/sft_pilot/final \
+  --out submission/weights --backup --device cpu
+./scripts/zip-submission.sh
+```
+
+`solution.py` грузит merged `weights/` без LoRA в runtime.
 
 ## Сборка и smoke test
 

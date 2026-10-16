@@ -24,7 +24,7 @@ def main() -> None:
         local_dir=str(LOCAL_DIR),
     )
     print(f"weights downloaded to: {path}")
-    print(f"pack for contest: cd {SUBMISSION_DIR} && zip -r ../task-2-translategemma-submission.zip .")
+    print(f"pack for contest: cd {SUBMISSION_DIR.parent} && ./scripts/zip-submission-translate.sh")
 
 
 if __name__ == "__main__":

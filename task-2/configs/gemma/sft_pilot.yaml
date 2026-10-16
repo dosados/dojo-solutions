@@ -1,0 +1,40 @@
+# Stage 2 SFT — Gemma-4-E2B (продолжение clm_pilot)
+stage: sft
+model_type: gemma
+run_name: sft_pilot
+
+model_dir: submission/weights
+output_dir: runs/lora/gemma
+adapter_init: runs/lora/gemma/clm_pilot/final
+
+train_file: data/processed/parallel/train.jsonl
+val_file: data/processed/parallel/val.jsonl
+
+max_val_samples: 500
+min_src_chars: 5
+max_src_chars: 4096
+max_sents: 20
+
+seed: 42
+num_train_epochs: 3
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 1.0e-4
+max_seq_length: 256
+loss_type: nll
+completion_only_loss: true
+gradient_checkpointing: true
+cast_norms_to_fp32: true
+low_vram: true
+warmup_steps: 100
+
+lora_r: 24
+lora_alpha: 48
+lora_dropout: 0.05
+
+logging_steps: 20
+eval_steps: 200
+save_steps: 200
+save_total_limit: 2
+save_only_model: true
+auto_resume: true

@@ -1,0 +1,15 @@
+# QLoRA training (conda ml-env)
+torch>=2.4.0
+transformers>=5.5.0
+accelerate>=0.33.0
+peft>=0.13.0
+trl>=0.12.0
+bitsandbytes>=0.43.0
+datasets>=2.14.0
+pyyaml>=6.0
+sentencepiece>=0.2.0
+protobuf>=4.0.0
+pillow>=10.0.0
+
+# Локальная BLEU-валидация (task-1/eval)
+sacrebleu>=2.4.0

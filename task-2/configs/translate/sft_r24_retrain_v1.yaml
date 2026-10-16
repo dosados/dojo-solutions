@@ -1,0 +1,65 @@
+# SFT заново на parallel: старт с контестного LoRA (sft_r24_full_v1), новый прогон.
+#
+# Не продолжает sft_r24_cont_v2 — отдельный run_name, шаги с 0.
+# База: weights_original. Старт адаптер: sft_r24_full_v1/final (до cont_v2).
+# Выход: runs/lora/translate/sft_r24_retrain_v1/final
+#
+# Первая половина эпохи (50% по шагам, как sft_r24_cont_v2):
+#   rm -rf runs/lora/translate/sft_r24_retrain_v1
+#   python -u scripts/train_qlora.py --config configs/translate/sft_r24_retrain_v1.yaml --no-auto-resume
+#
+# Вторая половина:
+#   rm -rf runs/lora/translate/sft_r24_retrain_v1/final
+#   python -u scripts/train_qlora.py --config configs/translate/sft_r24_retrain_v1_resume.yaml
+#
+stage: sft
+model_type: translate
+run_name: sft_r24_retrain_v1
+
+model_dir: submission_translate/weights_original
+output_dir: runs/lora/translate
+adapter_init: runs/lora/translate/sft_r24_full_v1/final
+
+train_file: data/processed/parallel/train.jsonl
+val_file: data/processed/parallel/val.jsonl
+
+max_val_samples: 500
+min_src_chars: 5
+max_src_chars: 120
+max_sents: 3
+
+max_train_samples: 240000
+
+seed: 42
+num_train_epochs: 0.5
+per_device_train_batch_size: 8
+gradient_accumulation_steps: 1
+learning_rate: 1.0e-4
+max_seq_length: 256
+loss_type: nll
+completion_only_loss: true
+gradient_checkpointing: true
+cast_norms_to_fp32: true
+low_vram: true
+warmup_steps: 100
+
+tokenize_batched: true
+tokenize_batch_size: 256
+attn_implementation: sdpa
+compile_train: false
+compile_mode: default
+
+lora_r: 24
+lora_alpha: 48
+lora_dropout: 0.05
+
+logging_steps: 20
+eval_steps: 200
+save_steps: 200
+save_total_limit: 5
+save_only_model: true
+auto_resume: true
+
+save_best_eval: true
+best_eval_dir: best_eval
+best_eval_metric: eval_loss

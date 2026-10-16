@@ -1,0 +1,40 @@
+# Stage 1 CLM — TranslateGemma, smoke (10 steps)
+stage: clm
+model_type: translate
+run_name: clm_smoke
+
+model_dir: submission_translate/weights
+output_dir: runs/lora/translate
+adapter_init: null
+
+train_file: data/processed/mono/train.jsonl
+mono_lang_weights:
+  ab: 0.5
+  ru: 0.5
+
+max_train_samples: 2000
+min_chars: 20
+max_chars: 800
+
+seed: 42
+num_train_epochs: 1
+max_steps: 10
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4
+learning_rate: 2.0e-4
+max_seq_length: 256
+loss_type: nll
+completion_only_loss: false
+gradient_checkpointing: true
+cast_norms_to_fp32: true
+low_vram: true
+warmup_steps: 2
+
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+
+logging_steps: 2
+save_steps: 5
+save_total_limit: 1
+save_only_model: true

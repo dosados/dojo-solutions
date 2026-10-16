@@ -21,11 +21,13 @@ import sys
 import time
 from pathlib import Path
 
+import torch
+
 _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from local_inference import run_gemma, run_translate  # noqa: E402
+from local_inference import run_gemma, run_nllb, run_translate  # noqa: E402
 
 _TASK_ROOT = Path(__file__).resolve().parents[1]
 _TASK1_ROOT = _TASK_ROOT.parent / "task-1"
@@ -38,6 +40,10 @@ MODEL_PRESETS = {
     "gemma": {
         "weights": _TASK_ROOT / "submission" / "weights",
         "output": _TASK_ROOT / "out" / "gemma_dev_output.json",
+    },
+    "nllb": {
+        "weights": _TASK_ROOT / "submission_nllb" / "weights",
+        "output": _TASK_ROOT / "out" / "nllb_dev_output.json",
     },
 }
 
@@ -70,15 +76,15 @@ def _load_rows(path: Path, *, limit: int | None) -> list[dict]:
 
 def _run_inference(args: argparse.Namespace) -> None:
     if not args.weights.is_dir():
-        # fallback: task-1 weights for gemma (same google/gemma-4-E2B-it)
-        fallback = _TASK1_ROOT / "submission" / "weights"
-        if args.model == "gemma" and fallback.is_dir():
-            args.weights = fallback
-        else:
-            raise FileNotFoundError(
-                f"weights not found: {args.weights}\n"
-                f"Run download_weights.py or download_weights_translate.py"
-            )
+        scripts = {
+            "gemma": "download_weights.py",
+            "translate": "download_weights_translate.py",
+            "nllb": "download_weights_nllb.py",
+        }
+        script = scripts[args.model]
+        raise FileNotFoundError(
+            f"weights not found: {args.weights}\n  run: python {script}"
+        )
     if not args.input.is_file():
         raise FileNotFoundError(
             f"input not found: {args.input}\n"
@@ -92,16 +98,31 @@ def _run_inference(args: argparse.Namespace) -> None:
     warnings.filterwarnings("ignore", message=".*generation flags are not valid.*")
 
     rows = _load_rows(args.input, limit=args.limit)
-    print(f"[{args.model}] inference: {len(rows)} example(s)", flush=True)
-    t0 = time.perf_counter()
-    run_fn = run_translate if args.model == "translate" else run_gemma
-    results = run_fn(
-        rows,
+    run_fns = {
+        "translate": run_translate,
+        "gemma": run_gemma,
+        "nllb": run_nllb,
+    }
+    run_fn = run_fns[args.model]
+    infer_kw = dict(
         model_dir=args.weights,
         gpu_only=args.gpu_only,
         quantize=args.quantize,
         show_progress=True,
+        batch_size=args.batch_size,
+        use_compile=args.compile,
+        warmup=args.warmup,
+        max_new_tokens=args.max_new_tokens,
     )
+    print(
+        f"[{args.model}] inference: {len(rows)} example(s)  "
+        f"batch={args.batch_size} compile={args.compile} max_new_tokens={args.max_new_tokens}",
+        flush=True,
+    )
+    t0 = time.perf_counter()
+    results = run_fn(rows, **infer_kw)
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
     elapsed = time.perf_counter() - t0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -177,7 +198,7 @@ def main() -> None:
         "--model",
         choices=sorted(MODEL_PRESETS),
         default="translate",
-        help="gemma = Gemma-4-E2B, translate = TranslateGemma-4B",
+        help="gemma | translate | nllb",
     )
     parser.add_argument(
         "--prepare-dev",
@@ -238,6 +259,28 @@ def main() -> None:
         default="none",
         help="4bit NF4 через bitsandbytes (~8GB GPU); приоритет над --gpu-only",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Размер батча (default: translate=8, gemma=1)",
+    )
+    parser.add_argument(
+        "--compile",
+        action="store_true",
+        help="torch.compile(model.forward)",
+    )
+    parser.add_argument(
+        "--warmup",
+        action="store_true",
+        help="Прогреть compile до замера времени",
+    )
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=None,
+        help="Лимит генерации (default: translate=128, gemma=1024)",
+    )
     parser.add_argument("--worst", type=int, default=10)
     parser.add_argument("--show-text", action="store_true")
     parser.add_argument("--json-out", type=Path, default=None)
@@ -247,6 +290,22 @@ def main() -> None:
         args.weights = preset["weights"]
     if args.output is None:
         args.output = preset["output"]
+    if args.batch_size is None:
+        default_bs = {"translate": 40, "nllb": 16, "gemma": 1}
+        args.batch_size = default_bs[args.model]
+    if args.max_new_tokens is None:
+        from local_inference import (
+            GEMMA_MAX_NEW_TOKENS,
+            NLLB_MAX_NEW_TOKENS,
+            TRANSLATE_MAX_NEW_TOKENS,
+        )
+
+        default_mnt = {
+            "translate": TRANSLATE_MAX_NEW_TOKENS,
+            "nllb": NLLB_MAX_NEW_TOKENS,
+            "gemma": GEMMA_MAX_NEW_TOKENS,
+        }
+        args.max_new_tokens = default_mnt[args.model]
 
     if args.prepare_dev:
         _prepare_dev(args)

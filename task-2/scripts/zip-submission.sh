@@ -29,6 +29,9 @@ EXCLUDE=(
   "*__MACOSX*"
   "*__pycache__*"
   "*.pyc"
+  "weights_backup/*"
+  "weights_original/*"
+  "weights_merged/*"
   "weights/.cache/*"
   "weights/.cache/**"
 )

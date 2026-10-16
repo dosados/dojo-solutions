@@ -1,0 +1,39 @@
+# Stage 1 — mono same-lang (rus/abk), pilot — NLLB-3.3B (4-bit QLoRA, ~8GB GPU)
+stage: clm
+run_name: clm_pilot
+
+model_dir: submission_nllb/weights
+output_dir: runs/lora/nllb
+adapter_init: null
+
+train_file: data/processed/mono/train.jsonl
+mono_lang_weights:
+  ab: 0.6
+  ru: 0.4
+
+min_chars: 20
+max_chars: 4096
+
+seed: 42
+num_train_epochs: 2
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 2.0e-4
+max_seq_length: 384
+gradient_checkpointing: true
+cast_norms_to_fp32: true
+warmup_steps: 100
+
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+logging_steps: 20
+save_steps: 200
+save_total_limit: 2
+save_only_model: true
+auto_resume: true
+# При OOM на 8 GB (3.3B):
+# cpu_offload: true
+# gpu_max_memory_gib: 6.5
+# cpu_max_memory_gib: 32

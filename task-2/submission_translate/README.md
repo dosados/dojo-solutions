@@ -36,14 +36,14 @@ cat ../out/output.json
 
 ## Упаковка в zip
 
-Корень архива = содержимое **этой** папки (без обёртки `submission_translate/`):
+Из `task-2/` (только `Dockerfile`, `solution.py`, `weights/` — без `weights_backup`, `weights_merged_*`, README):
 
 ```bash
-cd task-2/submission_translate
-zip -r ../task-2-translategemma-submission.zip .
+./scripts/zip-submission-translate.sh
+./scripts/zip-submission-translate.sh --compress   # меньше архив, дольше
 ```
 
-Не включайте `__MACOSX`, не делайте двойную вложенность папок.
+Корень архива = плоский (`Dockerfile`, `solution.py`, `weights/`). Не делайте двойную вложенность папок.
 
 ## Локальная оценка (dev + BLEU)
 

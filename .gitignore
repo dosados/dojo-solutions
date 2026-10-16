@@ -40,3 +40,18 @@ weights/
 
 # Случайный вывод shell (pip install ... > =0.46.1)
 =*
+
+# Research artifacts: regenerate locally; never publish model/tokenizer copies
+**/weights*/
+**/data/
+**/runs/
+**/out/
+**/.cache/
+*.zip
+*.tar
+*.tar.gz
+*.pickle
+*.npy
+*.npz
+*.parquet
+!task-*/examples/example-input.pickle

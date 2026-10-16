@@ -14,14 +14,27 @@ from typing import Iterator
 import torch
 from transformers import AutoProcessor, AutoModelForCausalLM
 
-from postprocess import postprocess_translation
-from prompts import build_baseline_prompt, build_translation_prompt
-
 
 MODEL_DIR = "./weights"
+# scripts/bench_gemma_batch_mem.py — L4 24GB, худшие батчи.
+BATCH_SIZE = 4
+NUM_BEAMS = 3
+LENGTH_PENALTY = 0.8
 MAX_NEW_TOKENS_DEFAULT = 1536
 MAX_NEW_TOKENS_CAP = 2048
 MIN_NEW_TOKENS = 384
+
+
+def build_baseline_prompt(src: str) -> str:
+    """Оригинальный промпт организаторов из baseline submission."""
+    return (
+        "Ты профессиональный переводчик. Твоя задача перевести текст с английского "
+        "на русский.\n"
+        "ВАЖНО чтобы в ответе был только перевод без каких-либо комментариев "
+        "и уточнений.\n\n"
+        "Текст для перевода:\n"
+        f"{src}"
+    )
 
 
 def estimate_max_new_tokens(src: str) -> int:
@@ -84,15 +97,10 @@ def parse_args() -> argparse.Namespace:
         help=f"Не масштабировать лимит по длине src; использовать {MAX_NEW_TOKENS_DEFAULT}",
     )
     parser.add_argument(
-        "--prompt",
-        choices=("baseline", "v1"),
-        default="v1",
-        help="baseline: промпт организаторов; v1: BLEU-инструкция + few-shot",
-    )
-    parser.add_argument(
-        "--no-postprocess",
-        action="store_true",
-        help="Не применять postprocess.py (для сравнения с оригинальным бейзлайном)",
+        "--batch-size",
+        type=int,
+        default=BATCH_SIZE,
+        help=f"Размер батча inference (по умолчанию {BATCH_SIZE}; 1 = последовательно)",
     )
     return parser.parse_args()
 
@@ -105,6 +113,7 @@ def _bnb_config(quantize: str):
             load_in_4bit=True,
             bnb_4bit_compute_dtype=torch.bfloat16,
             bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
         )
     if quantize == "8bit":
         return BitsAndBytesConfig(load_in_8bit=True)
@@ -137,7 +146,10 @@ def _load_model(
                 f"может не влезть; используйте --quantize 4bit",
                 flush=True,
             )
-        load_kw: dict = {"device_map": {"": 0}}
+        load_kw: dict = {
+            "device_map": {"": 0},
+            "attn_implementation": "sdpa",
+        }
         if quantize != "none":
             load_kw["quantization_config"] = _bnb_config(quantize)
             load_kw["dtype"] = torch.bfloat16
@@ -163,8 +175,9 @@ def _load_model(
             MODEL_DIR,
             dtype="auto",
             device_map="auto",
+            attn_implementation="sdpa",
         )
-        device = _infer_model_device(model)
+        device = _input_device(model)
 
     _report_device_placement(model, device_mode, quantize=quantize)
     return model, device
@@ -217,6 +230,25 @@ def _tokens_for_paragraph(
     if dynamic:
         return estimate_max_new_tokens(src)
     return MAX_NEW_TOKENS_DEFAULT
+
+
+def _input_device(model: AutoModelForCausalLM) -> torch.device:
+    if hasattr(model, "device"):
+        return model.device
+    for p in model.parameters():
+        if p.device.type != "meta":
+            return p.device
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def _iter_batches(rows: list[dict], batch_size: int) -> Iterator[list[dict]]:
+    if batch_size <= 1:
+        for row in rows:
+            yield [row]
+        return
+    ordered = sorted(rows, key=lambda r: len(r["src"]))
+    for start in range(0, len(ordered), batch_size):
+        yield ordered[start : start + batch_size]
 
 
 def _iter_rows(rows: list, *, progress: bool) -> Iterator[dict]:
@@ -278,43 +310,82 @@ def main() -> None:
         )
     if args.progress:
         print(f"translating {n} paragraphs …", flush=True)
-    print(f"prompt: {args.prompt}", flush=True)
-    if args.no_postprocess:
-        print("postprocess: off", flush=True)
+    print("prompt: baseline", flush=True)
+    print("postprocess: off", flush=True)
+    print(f"batch_size: {args.batch_size}", flush=True)
+    print(f"num_beams: {NUM_BEAMS}", flush=True)
+    print(f"length_penalty: {LENGTH_PENALTY}", flush=True)
 
-    build_prompt = (
-        build_baseline_prompt if args.prompt == "baseline" else build_translation_prompt
-    )
+    tokenizer = processor.tokenizer
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    pad_token_id = int(tokenizer.pad_token_id)
 
-    results = []
-    t0 = time.perf_counter()
-    for row in _iter_rows(rows, progress=args.progress):
-        src = row["src"]
-        max_tokens = _tokens_for_paragraph(
+    def _tokens_for(src: str) -> int:
+        return _tokens_for_paragraph(
             src,
             fixed=args.max_new_tokens,
             dynamic=use_dynamic,
         )
-        text = processor.apply_chat_template(
-            [{"role": "user", "content": build_prompt(src)}],
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=False,
-        )
 
-        inputs = processor(text=text, return_tensors="pt").to(device)
-        input_len = inputs["input_ids"].shape[-1]
+    def _generate_batch(batch: list[dict], results: list[dict]) -> None:
+        batch_max = max(_tokens_for(r["src"]) for r in batch)
+        prompts = [
+            processor.apply_chat_template(
+                [{"role": "user", "content": build_baseline_prompt(row["src"])}],
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+            for row in batch
+        ]
+        inputs = tokenizer(
+            prompts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        ).to(device)
+        prompt_len = inputs["input_ids"].shape[1]
 
-        outputs = model.generate(**inputs, max_new_tokens=max_tokens)
-        response = processor.decode(outputs[0][input_len:], skip_special_tokens=False)
-        raw = processor.parse_response(response)["content"]
-        translation = raw.strip() if args.no_postprocess else postprocess_translation(raw)
+        with torch.inference_mode():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=batch_max,
+                do_sample=False,
+                num_beams=NUM_BEAMS,
+                length_penalty=LENGTH_PENALTY,
+                early_stopping=True,
+                pad_token_id=pad_token_id,
+            )
 
-        results.append({
-            "rid": row["rid"],
-            "translation": translation,
-        })
-        inputs.to("cpu")
+        for row, out_ids in zip(batch, outputs, strict=True):
+            response = processor.decode(out_ids[prompt_len:], skip_special_tokens=False)
+            raw = processor.parse_response(response)["content"]
+            translation = raw.strip()
+            results.append({"rid": row["rid"], "translation": translation})
+
+    results: list[dict] = []
+    t0 = time.perf_counter()
+    batch_size = max(1, args.batch_size)
+
+    if args.progress and batch_size > 1:
+        try:
+            from tqdm import tqdm
+
+            batches = list(_iter_batches(rows, batch_size))
+            batch_iter = tqdm(batches, desc="translate", unit="batch", dynamic_ncols=True)
+        except ImportError:
+            batch_iter = _iter_batches(rows, batch_size)
+    elif args.progress:
+        batch_iter = ([row] for row in _iter_rows(rows, progress=True))
+    else:
+        batch_iter = _iter_batches(rows, batch_size)
+
+    for batch in batch_iter:
+        _generate_batch(batch, results)
+
+    results.sort(key=lambda x: x["rid"])
 
     elapsed = time.perf_counter() - t0
     if n:

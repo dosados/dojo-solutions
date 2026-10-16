@@ -1,5 +1,7 @@
 # Веса не коммитятся (~10 GB); скачать: python download_weights.py
 submission/weights/
+submission_translate/weights/
+task-1-translategemma-submission.zip
 
 # Артефакты локальных прогонов
 out/
